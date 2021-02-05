@@ -42,9 +42,8 @@ def reid(img, label):
         temp_id
     """
 
-    img = np.reshape(img, (9, 9))
-    label = np.argmax(id)
-
+    # img = np.reshape(img, (9, 9))
+    # label = np.argmax(id)
     pred = sorted(bktree.find(db(id=label, bits=dhash(img)), threshold))[0][1].id
     if(pred == label):
         # TODO: What to do with permanent ids?

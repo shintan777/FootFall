@@ -6,10 +6,11 @@ import time
 from threading import Thread
 
 from detection import detect
-# from reidentification import reid
+from reidentification import reid
 from utils.misc import get_box, read_py_config, preprocess_image
 from utils.video import MulticamCapture
 
+COUNTER = 0
 
 class FramesThreadBody:
     def __init__(self, capture, max_queue_length=2):
@@ -62,6 +63,9 @@ def main(input_urls, prob_threshold=0.6, output=None):
             frame, frame_count, detections = detect(frame)
             # TODO: Manequinn removal call here    
             # TODO: Re-id call here
+            for image in detections:
+                print(reid(image, str(COUNTER)))
+                COUNTER += 1
 
             ret, jpeg = cv.imencode('.jpg', frame)
             frames[i] = [jpeg, frame_count]
