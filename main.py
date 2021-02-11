@@ -10,7 +10,6 @@ from reidentification import reid
 from utils.misc import get_box, read_py_config, preprocess_image
 from utils.video import MulticamCapture
 
-COUNTER = 0
 
 class FramesThreadBody:
     def __init__(self, capture, max_queue_length=2):
@@ -41,14 +40,18 @@ def get_video_writer(output):
 
 def main(input_urls, prob_threshold=0.6, output=None):
 
+    COUNTER = 0
+    last_frame_count = None
+    sampling_var = 0
     capture = MulticamCapture(input_urls)
     thread_body = FramesThreadBody(capture, max_queue_length=len(capture.captures) * 2)
     frames_thread = Thread(target=thread_body)
     frames_thread.start()
 
     output_video = get_video_writer(output)
-
     while cv.waitKey(1) != 27 and thread_body.process:
+        sampling_var += 1
+        if sampling_var % 8 != 0: continue
         # start = time.time()
         try:
             frames = thread_body.frames_queue.get_nowait()
@@ -61,14 +64,20 @@ def main(input_urls, prob_threshold=0.6, output=None):
         for i,frame in enumerate(frames):
             # Person detection model
             frame, frame_count, detections = detect(frame)
+            last_frame_count = frame_count
             # TODO: Manequinn removal call here    
-            # TODO: Re-id call here
+            # Re-id call here
             for image in detections:
-                print(reid(image, str(COUNTER)))
-                COUNTER += 1
+                label_given = reid(image, COUNTER)
+                print("ppl in tree", COUNTER)
+                if label_given == COUNTER:
+                    COUNTER += 1
+                    
+            frame = cv.putText(frame, 'Count :'+str(last_frame_count), (30, 30), cv.FONT_HERSHEY_SIMPLEX,  
+            1, (0, 0, 255), 2, cv.LINE_AA)
 
             ret, jpeg = cv.imencode('.jpg', frame)
-            frames[i] = [jpeg, frame_count]
+            frames[i] = [jpeg, last_frame_count]
 
         if output_video:
             # TODO: Concat frames and write output
