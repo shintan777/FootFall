@@ -72,7 +72,7 @@ def main(input_urls, prob_threshold=0.6, output=None):
                 print("ppl in tree", COUNTER)
                 if label_given == COUNTER:
                     COUNTER += 1
-                    
+
             frame = cv.putText(frame, 'Count :'+str(last_frame_count), (30, 30), cv.FONT_HERSHEY_SIMPLEX,  
             1, (0, 0, 255), 2, cv.LINE_AA)
 

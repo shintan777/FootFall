@@ -54,13 +54,16 @@ def reid(img, label):
     #     bktree.add(db(id=label, bits=dhash(img)))
     #     print(label, "Added to the tree")
     # return pred # returning final ids?
-    pred = sorted(bktree.find(db(id=label, bits=dhash(img)), threshold))
+    # b, g, r = cv2.split(img)
+    # bhash, ghash, rhash = dhash(b), dhash(g), dhash(r)
+    # bits = int(str(bhash)+str(ghash)+str(rhash))
+    bits = dhash(img)
+    pred = sorted(bktree.find(db(id=label, bits=bits), threshold))
     if(pred):
-        # TODO: What to do with permanent ids?
         label = pred[0][1].id
         print(label, "is reid'ed correctly")
     else:
         # Adding new entry in db
-        bktree.add(db(id=label, bits=dhash(img)))
+        bktree.add(db(id=label, bits=bits))
         print(label, "Added to the tree")
     return label
