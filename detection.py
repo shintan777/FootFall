@@ -73,7 +73,6 @@ def detect(img, threshold=0.63):
 
     img = cv2.resize(img, (640, 480))
     boxes, scores, classes, num = odapi.processFrame(img)
-    # print("\n\n ====NUM===== ", num, len(boxes))
 
     count_ppl = 0
     detections = []
