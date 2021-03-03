@@ -9,7 +9,7 @@ from detection import detect
 # from reidentification import reid
 from utils.misc import get_box, read_py_config, preprocess_image
 from utils.video import MulticamCapture
-
+from pprint import pprint
 
 class FramesThreadBody:
     def __init__(self, capture, max_queue_length=2):
@@ -61,6 +61,8 @@ def main(input_urls, prob_threshold=0.6, output=None):
             # Person detection model
             frame = cv.resize(frame, (480, 360))
             frame, frame_count, detections = detect(frame)
+            print("Count: ", frame_count)
+            pprint(detections)
             # TODO: Manequinn removal call here    
             # TODO: Re-id call here
 

@@ -3,7 +3,8 @@ import tensorflow as tf
 import cv2
 import time
 
-from utils.misc import pre_reid_process
+# from utils.misc import pre_reid_process
+from pprint import pprint
 
 
 MODEL_PATH = "detector/frozen_inference_graph.pb"
@@ -60,34 +61,95 @@ class DetectorAPI:
 
 odapi = DetectorAPI(path_to_ckpt=MODEL_PATH)
 
-def detect(img, threshold=0.63):
+def iou(box1, box2):
+    xa = max( box1[1] , box2[1] )
+    ya = max( box1[0] , box2[0] )
+    xb = min( box1[3] , box2[3] )
+    yb = min( box1[2] , box2[2] )
+    
+    interArea = max(0, xb - xa ) * max(0, yb - ya )
+
+    box1Area = (box1[2] - box1[0]) * (box1[3] - box1[1] )
+    box2Area = (box2[2] - box2[0]) * (box2[3] - box2[1] )
+ 
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = float(interArea) / float(box1Area + box2Area - interArea)
+
+    # return the intersection over union value
+    return iou
+
+def detect(img, threshold=0.63, iou_threshold=0.4, k = 25):
     """
     Parameters
     -----------
     threshold: float
         Confidence threshold for detection
 
+    iou_threshold: float
+        Connfidence threshold for tracking
+
     img: cv2 image object
         Single image frame
+
+    k: int
+        Maximum number of previous frames to check iou with
     """
 
     img = cv2.resize(img, (640, 480))
     boxes, scores, classes, num = odapi.processFrame(img)
 
-    count_ppl = 0
-    detections = []
+    #changes from here
+    boxes_prev = []
+    framenum = 1
+    boxes_cur = []
+    ids = {}
+
+    for l in range(len(boxes_prev)):
+        if( len(boxes_prev[l]) < k ):
+            boxes_cur.append(  [-1] + boxes_prev[l]  )
+        else:
+            boxes_cur.append(  [-1] + boxes_prev[l][0:k-1]  )
+
     for i in range(len(boxes)):
+        # Class 1 represents human
+        if classes[i] == 1 and scores[i] > threshold:
+            box = boxes[i]
 
-        if classes[i] != 1 or not (scores[i] > threshold):
-            # class 1 represents humans
-            continue
+            maxthreshold = -1
+            maxindex = 101     #the index in boxes_prev indicating the matching person from the previous k frames. 
 
-        count_ppl += 1
-        box = boxes[i]
-        detections.append(pre_reid_process(box, img))
-        cv2.rectangle(img,(box[1],box[0]),(box[3],box[2]),(255,0,0),2)
+            for j in range( len(boxes_prev) ):
+                #Every boxes_prev[j] denotes a person. It is a list of the last k positions of the person j.
+                
+                if( boxes_prev[j] == -1 ):   #This previous person has already been alloted to another person in the current frame 
+                    continue
+                
+                for kk in range( len(boxes_prev[j]) ):
+                    if(boxes_prev[j][kk] == -1):      #person was not detected in frame kk
+                        continue
+                    r = iou( boxes_prev[j][kk] ,box)
+                    if(  r > maxthreshold  and  r > iou_threshold):
+                        maxthreshold = r
+                        maxindex = j            
+                    
+                
+            #maxthreshold != -1 at this point means this person is the same as prevbox in the last frame. 
+            if( maxthreshold != -1 ):
+                boxes_cur[ maxindex ][0] = box
+                boxes_prev[ maxindex ] = -1
+                person_id = maxindex
+            else:
+                boxes_cur.append( [box] )
+                person_id = len(boxes_cur)
 
-    img = cv2.putText(img, 'Count :'+str(count_ppl), (30, 30), cv2.FONT_HERSHEY_SIMPLEX,  
-            1, (0, 0, 255), 2, cv2.LINE_AA)
+            #draw the bounding box on the image
+            cv2.rectangle(img,(box[1],box[0]),(box[3],box[2]),(255,0,0),2)
+            cv2.putText(img, str(person_id), (box[1],box[0]), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 1, cv2.LINE_AA )
+            ids[person_id] = box
 
-    return img, count_ppl, detections
+    boxes_prev =  boxes_cur
+    framenum += 1
+
+    return img, len(boxes_cur), ids
